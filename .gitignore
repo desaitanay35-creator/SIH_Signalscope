@@ -44,6 +44,8 @@ htmlcov/
 # Datasets
 test/
 train/
+data/raw/
+data/manifests/*.csv
 
 # SignalScope Runtime & Model Weights
 *.db
