@@ -9,3 +9,32 @@ explainability:
   gradcam_layer: "features.7"
   fft_highpass_radius: 30
   ela_quality: 90
+
+# Dataset ingestion, preprocessing, and splitting configuration.
+# See data/README.md for the full manifest format and split methodology.
+data:
+  # Path to the dataset manifest (CSV or JSON). Never commit real dataset
+  # images or the hidden SIH test set to this repository - point this at a
+  # local/external path.
+  manifest_path: "data/manifest.csv"
+
+  preprocessing:
+    image_size: [224, 224]
+    normalization:
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+
+  split:
+    # Master seed for all reproducible split decisions.
+    seed: 42
+    # Fraction of "seen" data (real images + seen generators) routed to
+    # validation rather than train.
+    val_fraction: 0.15
+    # Explicit generator IDs to hold out entirely for unseen-generator
+    # evaluation. These generators MUST NOT appear in train or val.
+    # If empty, `held_out_generator_fraction` is used to pick generators
+    # deterministically instead.
+    unseen_generators: []
+    # Used only when `unseen_generators` is empty: fraction of distinct
+    # non-real generator IDs (sorted, then seeded-shuffled) to hold out.
+    held_out_generator_fraction: 0.3
