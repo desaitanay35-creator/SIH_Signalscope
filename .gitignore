@@ -46,9 +46,18 @@ test/
 train/
 
 # SignalScope Runtime & Model Weights
+*.db
+*.sqlite3
 weights/*.pth
 weights/*.onnx
 weights/*.safetensors
+backend/model/weights/*
+!backend/model/weights/.gitkeep
+backend/storage/originals/*
+!backend/storage/originals/.gitkeep
+backend/storage/heatmaps/*
+!backend/storage/heatmaps/.gitkeep
+.env
 *.log
 scratch/
 tmp/

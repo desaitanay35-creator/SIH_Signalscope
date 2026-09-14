@@ -1,10 +1,19 @@
 # 🔍 SignalScope: AI-Generated Image Detection & Explainability Tool
+# SignalScope
 
 SignalScope is a modular, high-performance forensic toolkit designed to detect AI-generated imagery (GANs, Diffusion models, Midjourney, DALL-E 3) and provide deep visual explainability (Grad-CAM, FFT spectrums, Error Level Analysis).
+> **Telling Real From Synthetic in the Age of Generative Media.**
+
+SignalScope is an AI and media-forensics application designed to assess whether an image is:
+1. **Likely real**
+2. **Likely AI-generated**
+
+The system provides calibrated likelihood assessments, model version information, processing latency, forensic metadata (EXIF / C2PA markers), and visual explainability evidence (Grad-CAM heatmaps).
 
 ---
 
 ## 🏛 Repository Architecture & Team Allocation
+## Repository Structure
 
 | Module | File Path | Team Member | Primary Responsibility |
 | :--- | :--- | :--- | :--- |
@@ -37,30 +46,102 @@ SignalScope is a modular, high-performance forensic toolkit designed to detect A
 | **Ops** | `utils/metrics.py` | **Member 6** | ROC-AUC, Accuracy & ECE metric calculations |
 | **Ops** | `tests/*` | **Member 6** | PyTest test suite (unit & integration tests) |
 | **Ops** | `Dockerfile` | **Member 6** | Container definition & Docker Compose configuration |
+```
+SIH_Signalscope/
+├── backend/                        # FastAPI Backend Application
+│   ├── app/
+│   │   ├── main.py                 # FastAPI app entrypoint, lifespan, CORS, error handling
+│   │   ├── api/routes/             # /health, /model, /analyze, /analyses
+│   │   ├── core/                   # Config (pydantic-settings), logging, custom error types
+│   │   ├── schemas/                # Pydantic request/response schemas
+│   │   ├── services/               # Image validation, inference, metadata, storage, analysis
+│   │   ├── ml/                     # ImageDetector interface, Stub detector, Calibrator
+│   │   └── db/                     # SQLite / SQLAlchemy models & session
+│   ├── model/weights/              # Directory for ML model weights
+│   ├── storage/                    # Safe UUID storage for originals and heatmaps
+│   ├── tests/                      # Pytest automated test suite (15 passing tests)
+│   ├── requirements.txt            # Backend dependencies
+│   ├── .env.example                # Environment variable configuration template
+│   ├── .gitignore                  # Storage, db, and weights ignore rules
+│   └── README.md                   # Backend documentation
+├── .gitignore                      # Git ignore rules
+└── README.md                       # Root documentation
+```
 
 ---
 
 ## 🚀 Quick Start Guide
+## Quickstart: Running the Backend
 
 ### 1. CLI Prediction (`model/predict.py`)
+### 1. Install Dependencies
 ```bash
 python model/predict.py --image path/to/sample.jpg
+cd backend
+pip install -r requirements.txt
 ```
 
 ### 2. Run API Service
+### 2. Configure Environment
 ```bash
 uvicorn api.main:app --reload --port 8000
+copy .env.example .env
 ```
 
 ### 3. Run Streamlit UI
+### 3. Start the FastAPI Server
 ```bash
 streamlit run ui/app.py
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+
+### 4. Open Swagger Documentation
+With the server running, navigate in your browser to:
+- **Swagger UI**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **ReDoc**: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 
 ---
 
 ## 🛠 Setup Repository Script
 To recreate the repository folder structure automatically, run:
+## API Endpoints (`/api/v1`)
+
+- `GET /api/v1/health`: System health and model loaded status (`{"status": "ok", "model_loaded": false}`).
+- `GET /api/v1/model`: Active detector metadata (`name`, `version`, `task`, `loaded`).
+- `POST /api/v1/analyze`: Upload image (`multipart/form-data`) for forensic analysis.
+- `GET /api/v1/analyses/{analysis_id}`: Retrieve a stored analysis record by UUID.
+- `GET /api/v1/analyses`: Retrieve paginated history of past analyses.
+- `GET /api/v1/analyses/{analysis_id}/heatmap`: Download Grad-CAM visual heatmap if generated.
+
+---
+
+## ML Model Integration
+
+The backend is decoupled from model architecture specifics. Any ML model (ResNet, EfficientNet, ViT, or custom backbones) can be integrated by implementing the `ImageDetector` contract (`backend/app/ml/detector.py`).
+
+When model weights are not loaded in `backend/model/weights/`:
+- `GET /api/v1/health` reports `model_loaded: false`
+- `POST /api/v1/analyze` returns HTTP `503 Service Unavailable` (`MODEL_UNAVAILABLE`)
+- **No fake results, placeholder predictions, or hardcoded probabilities are returned.**
+
+---
+
+## Running Tests
+
+From the `backend` directory:
 ```bash
 python setup_repo.py
+cd backend
+python -m pytest tests/ -v
 ```
+
+All 15 automated unit and integration tests run without external dependencies and pass in `< 1` second.
+
+---
+
+## Responsible-Use Policy
+
+- Outputs are strictly **likelihood assessments** (`"Likely AI-generated"` / `"Likely real"`).
+- Never makes definitive or unprovable claims (*"100% fake"* / *"definitely AI"*).
+- Not designed to profile real individuals or adjudicate political claims.
+- Metadata (EXIF/C2PA) serves as contextual supporting evidence only.
