@@ -1,0 +1,11 @@
+# SignalScope Model & Inference Configuration
+model:
+  name: "EfficientNet-B4"
+  num_classes: 2
+  input_size: [224, 224]
+  threshold: 0.5
+
+explainability:
+  gradcam_layer: "features.7"
+  fft_highpass_radius: 30
+  ela_quality: 90
