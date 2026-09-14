@@ -177,3 +177,86 @@ pytest tests/test_model.py -v
 
 These tests always construct the model with `pretrained=False`, so they
 require no network access and never download ImageNet weights.
+
+## Tiny-GenImage Parquet ingestion
+
+`data/genimage_ingest.py::ingest_parquet_shard` converts a GenImage-format
+Parquet shard into extracted image files plus a manifest matching the
+format above. It is reusable across shards - point it at a different
+`.parquet` file, image output directory, manifest path, and split name to
+ingest another shard later (e.g. a held-out unseen-generator shard).
+
+**Expected input format** - one Parquet shard with exactly these columns:
+
+| column | type | meaning |
+| --- | --- | --- |
+| `image` | `struct<bytes: binary, path: string>` | embedded image bytes + original filename/path |
+| `label` | `int64` | GenImage's own label: `0 = real`, `1 = fake` |
+| `generator` | `int64` | GenImage's generator id, `0`-`8` (see mapping below) |
+
+**Output:**
+- Extracted image files: `data/raw/genimage/dev/images/` (one file per row,
+  original basename/extension preserved when valid; duplicate source
+  filenames are disambiguated deterministically, e.g. `name.jpg`,
+  `name__1.jpg`, never overwritten).
+- Manifest: `data/manifests/genimage_dev.csv`, with exactly the
+  `image_path,label,generator,split` columns described above and
+  project-relative image paths (e.g.
+  `data/raw/genimage/dev/images/n01440764_11602.JPEG`).
+
+**Label mapping** (GenImage id -> SignalScope manifest label; numeric
+values unchanged, only the semantic name changes):
+
+| GenImage id | GenImage name | SignalScope label | SignalScope meaning |
+| --- | --- | --- | --- |
+| 0 | real | 0 | real |
+| 1 | fake | 1 | ai_generated |
+
+**Generator mapping** (GenImage id -> SignalScope manifest generator
+string - verified from the dataset's Hugging Face metadata, never inferred;
+an unrecognized id aborts ingestion instead of being guessed):
+
+| id | generator |
+| --- | --- |
+| 0 | real |
+| 1 | ADM |
+| 2 | BigGAN |
+| 3 | GLIDE |
+| 4 | Midjourney |
+| 5 | SD14 |
+| 6 | SD15 |
+| 7 | VQDM |
+| 8 | Wukong |
+
+**This is a DEVELOPMENT dataset.** The current 2,000-image shard
+(`data/raw/genimage/dev/train-00000-of-00014.parquet`) exists to develop and
+test the ingestion, dataset, and (later) training code end-to-end on a fast,
+CPU-friendly sample. It is small, and every generator present in it is
+"seen" at this stage - it must **not** be treated as the final
+generator-disjoint unseen-generator benchmark, and no model performance
+claim should ever be based on it. A real unseen-generator evaluation
+requires a properly held-out set of generators never ingested into
+training (see "Generator-disjoint splitting" above), assembled from the
+full GenImage shards once training begins.
+
+Ingestion never fabricates, skips, or silently repairs a bad record: a
+missing/empty `image.bytes`, an unrecognized `label`, or an unrecognized
+`generator` id raises `IngestionError` immediately.
+
+Run the ingestion tests with:
+
+```bash
+pytest tests/test_genimage_ingest.py -v
+```
+
+All fixtures are tiny synthetic Parquet shards built in-memory in the test
+file (a handful of small generated PNGs) - no real shard is read or
+required. To ingest the real development shard:
+
+```bash
+python -m data.genimage_ingest \
+  --parquet data/raw/genimage/dev/train-00000-of-00014.parquet \
+  --image-dir data/raw/genimage/dev/images \
+  --manifest data/manifests/genimage_dev.csv \
+  --split train
+```
