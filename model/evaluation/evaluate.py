@@ -46,8 +46,21 @@ from model.evaluation.report import (
     write_metrics_json,
     write_predictions_csv,
 )
-from model.training.checkpoint import load_model_from_checkpoint, load_training_checkpoint
+from model.training.checkpoint import (
+    DEFAULT_ARCHITECTURE_ID,
+    UnknownArchitectureError,
+    load_model_from_checkpoint,
+    load_training_checkpoint,
+)
 from model.training.dataset import assert_no_duplicate_images, build_val_dataset
+from model.training.dual_branch_dataset import build_dual_branch_val_dataset
+
+# Architecture ids whose dataset must supply both RGB and frequency
+# tensors (see model/training/dual_branch_dataset.py). Any id not in this
+# set and not DEFAULT_ARCHITECTURE_ID is rejected clearly rather than
+# silently defaulting to one dataset shape or the other - see
+# .claude/specs/06-frequency-fusion.md ("Model-loading interface").
+_DUAL_BRANCH_ARCHITECTURES = ("frequency_branch", "rgb_frequency_fusion")
 
 
 REAL_PAIRING_NOTE = (
@@ -186,8 +199,11 @@ def run_evaluation(
     model.eval()
 
     training_provenance: Dict[str, Any] = {}
+    architecture_id = DEFAULT_ARCHITECTURE_ID
     try:
         training_checkpoint = load_training_checkpoint(checkpoint_path, map_location="cpu")
+        checkpoint_model_config = training_checkpoint.get("model_config") or {}
+        architecture_id = checkpoint_model_config.get("architecture", DEFAULT_ARCHITECTURE_ID)
         training_provenance = {
             "training_config": training_checkpoint.get("training_config"),
             "model_config": training_checkpoint.get("model_config"),
@@ -195,14 +211,27 @@ def run_evaluation(
             "training_best_val_roc_auc": training_checkpoint.get("best_val_roc_auc"),
         }
     except Exception:
-        # The model already loaded successfully via load_model_from_checkpoint;
+        # The model already loaded successfully via load_model_from_checkpoint
+        # (which independently resolves architecture from the same field);
         # missing/incompatible full-checkpoint metadata only degrades the
-        # reported provenance, it does not block evaluation.
+        # reported provenance and falls back to the RGB-only dataset shape,
+        # matching load_model_from_checkpoint's own backward-compatible
+        # default - it does not block evaluation.
         training_provenance = {"warning": "training checkpoint metadata unavailable"}
 
     preprocessor = ImagePreprocessor.from_config(data_config.preprocessing)
-    val_dataset = build_val_dataset(splits["val"], preprocessor)
-    test_dataset = build_val_dataset(splits["test"], preprocessor)
+    if architecture_id == DEFAULT_ARCHITECTURE_ID:
+        val_dataset = build_val_dataset(splits["val"], preprocessor)
+        test_dataset = build_val_dataset(splits["test"], preprocessor)
+    elif architecture_id in _DUAL_BRANCH_ARCHITECTURES:
+        val_dataset = build_dual_branch_val_dataset(splits["val"], preprocessor)
+        test_dataset = build_dual_branch_val_dataset(splits["test"], preprocessor)
+    else:
+        raise UnknownArchitectureError(
+            f"Checkpoint {str(checkpoint_path)!r} declares architecture {architecture_id!r}, which "
+            "has no registered evaluation-dataset construction. Known architectures: "
+            f"{(DEFAULT_ARCHITECTURE_ID,) + _DUAL_BRANCH_ARCHITECTURES}."
+        )
 
     val_loader = _build_eval_dataloader(val_dataset, eval_config)
     test_loader = _build_eval_dataloader(test_dataset, eval_config)

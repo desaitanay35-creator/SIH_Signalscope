@@ -17,7 +17,7 @@ Responsible Team Member: Member 1 (Core ML & Model Architecture)
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List, Union
 
 import torch
 from torch import nn
@@ -25,6 +25,21 @@ from torch.utils.data import DataLoader
 
 REAL_LABEL = 0
 AI_GENERATED_LABEL = 1
+
+
+def _move_batch_to_device(
+    batch: Union[torch.Tensor, Dict[str, torch.Tensor]], device: torch.device
+) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+    """Moves a batch to `device`, whether it is a plain tensor (RGB-only
+    models) or a dict of tensors (dual-branch models, e.g.
+    {"rgb": ..., "frequency": ...}). Duplicated (not imported) from
+    model/training/engine.py's identical helper - a two-line utility does
+    not warrant a cross-package dependency between training and
+    evaluation. See .claude/specs/06-frequency-fusion.md ("Model-loading
+    interface")."""
+    if isinstance(batch, dict):
+        return {key: value.to(device) for key, value in batch.items()}
+    return batch.to(device)
 
 
 @dataclass(frozen=True)
@@ -75,7 +90,7 @@ def run_inference(
     rows: List[PredictionRow] = []
 
     for images, labels, meta in dataloader:
-        images = images.to(device)
+        images = _move_batch_to_device(images, device)
         logits = model(images)
         probabilities = torch.sigmoid(logits).squeeze(1).cpu().tolist()
         labels_list = labels.tolist()

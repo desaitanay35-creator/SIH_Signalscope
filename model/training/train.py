@@ -25,20 +25,22 @@ import argparse
 import random
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 import torch
+import yaml
 from torch import nn
 from torch.utils.data import DataLoader
 
 from config.settings import load_data_config, load_model_config
-from data.dataset_loader import load_manifest
+from data.dataset_loader import DatasetRecord, load_manifest
 from data.preprocessor import ImagePreprocessor
 from data.splitting import split_manifest
 from model.architectures.efficientnet_b4 import EfficientNetB4Baseline
 from model.training.checkpoint import save_checkpoint
 from model.training.config import TrainingConfig, load_training_config
 from model.training.dataset import assert_no_duplicate_images, build_train_dataset, build_val_dataset
+from model.training.dual_branch_dataset import build_dual_branch_train_dataset, build_dual_branch_val_dataset
 from model.training.engine import train_one_epoch, validate
 from model.training.logging_utils import RunLogger
 from model.training.seed import set_seed
@@ -46,13 +48,94 @@ from model.training.seed import set_seed
 DEV_SHARD_MARKER = "genimage_dev"
 DEV_SHARD_LABEL = "genimage_dev (development shard, not SIH benchmark)"
 
+DEFAULT_FREQUENCY_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "frequency_config.yaml"
+VALID_MODEL_TYPES = ("rgb_only", "frequency_only", "rgb_frequency_fusion")
+
 
 def _make_run_id() -> str:
     return time.strftime("%Y%m%d-%H%M%S")
 
 
-def _set_backbone_trainable(model: EfficientNetB4Baseline, trainable: bool) -> None:
-    for param in model.backbone.features.parameters():
+def _load_model_type(frequency_config_path: Optional[str]) -> str:
+    """Reads `model_type` from a frequency config YAML (default:
+    config/frequency_config.yaml). Falls back to "rgb_only" - reproducing
+    Step 4's exact behavior - when the file is absent or the key is unset
+    (this file's own shipped default value is also "rgb_only", so omitting
+    `--frequency-config` entirely changes nothing about existing runs).
+    Raises clearly for an unrecognized value rather than silently
+    defaulting or failing deeper in model construction. See
+    .claude/specs/06-frequency-fusion.md ("Configuration").
+    """
+    path = Path(frequency_config_path) if frequency_config_path else DEFAULT_FREQUENCY_CONFIG_PATH
+    model_type = "rgb_only"
+    if path.is_file():
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = yaml.safe_load(fh) or {}
+        model_type = raw.get("model_type", "rgb_only")
+    if model_type not in VALID_MODEL_TYPES:
+        raise ValueError(f"Unsupported model_type {model_type!r}; expected one of {VALID_MODEL_TYPES}.")
+    return model_type
+
+
+def _build_model(model_type: str, model_config) -> nn.Module:
+    """Builds the model for the given `model_type`. The two new
+    architectures are imported lazily so a plain "rgb_only" run - the
+    default and most common case - has no import-time dependency on the
+    Step 6 architecture files."""
+    if model_type == "rgb_only":
+        return EfficientNetB4Baseline(
+            pretrained=model_config.pretrained,
+            num_output_logits=model_config.num_output_logits,
+        )
+    if model_type == "frequency_only":
+        from model.architectures.frequency_branch import FrequencyOnlyModel
+
+        return FrequencyOnlyModel(num_output_logits=model_config.num_output_logits)
+    if model_type == "rgb_frequency_fusion":
+        from model.architectures.fusion_model import RGBFrequencyFusionModel
+
+        return RGBFrequencyFusionModel(
+            pretrained=model_config.pretrained,
+            num_output_logits=model_config.num_output_logits,
+        )
+    raise ValueError(f"Unsupported model_type {model_type!r}; expected one of {VALID_MODEL_TYPES}.")
+
+
+def _build_datasets(
+    model_type: str,
+    train_records: Sequence[DatasetRecord],
+    val_records: Sequence[DatasetRecord],
+    preprocessor,
+):
+    """Builds the (train_dataset, val_dataset) pair matching `model_type`'s
+    expected input shape - a single RGB tensor for "rgb_only", or a
+    {"rgb": ..., "frequency": ...} dict for the two dual-branch model
+    types. See .claude/specs/06-frequency-fusion.md ("Input construction
+    for training/evaluation (dataset wiring)")."""
+    if model_type == "rgb_only":
+        return (
+            build_train_dataset(train_records, preprocessor),
+            build_val_dataset(val_records, preprocessor),
+        )
+    return (
+        build_dual_branch_train_dataset(train_records, preprocessor),
+        build_dual_branch_val_dataset(val_records, preprocessor),
+    )
+
+
+def _set_backbone_trainable(model: nn.Module, trainable: bool) -> None:
+    """Freezes/unfreezes the RGB backbone's convolutional features, for
+    architectures that have one ("rgb_only" -> `model.backbone`,
+    "rgb_frequency_fusion" -> `model.rgb_branch.backbone`). No-op for
+    "frequency_only", which has no RGB backbone - `freeze_backbone_epochs`
+    has no meaning there."""
+    if hasattr(model, "backbone"):
+        target = model.backbone
+    elif hasattr(model, "rgb_branch"):
+        target = model.rgb_branch.backbone
+    else:
+        return
+    for param in target.features.parameters():
         param.requires_grad = trainable
 
 
@@ -99,14 +182,22 @@ def run_training(
     model_config_path: Optional[str] = None,
     smoke_test: bool = False,
     run_id: Optional[str] = None,
+    frequency_config_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Runs one full training job and returns a summary dict.
 
     `smoke_test=True` truncates train/val to `max_train_samples`/
     `max_val_samples` and forces a tiny, fast CPU correctness check - not a
     benchmark run. See .claude/specs/04-training-pipeline.md.
+
+    `frequency_config_path` selects which model this run trains (Step 6's
+    ablation: "rgb_only" - the default, reproducing this function's
+    original, Step-4-only behavior exactly - "frequency_only", or
+    "rgb_frequency_fusion"). See .claude/specs/06-frequency-fusion.md.
     """
     set_seed(training_config.seed)
+
+    model_type = _load_model_type(frequency_config_path)
 
     data_config = load_data_config(model_config_path)
     model_config = load_model_config(model_config_path)
@@ -137,15 +228,11 @@ def run_training(
             val_records = val_records[: training_config.max_val_samples]
 
     preprocessor = ImagePreprocessor.from_config(data_config.preprocessing)
-    train_dataset = build_train_dataset(train_records, preprocessor)
-    val_dataset = build_val_dataset(val_records, preprocessor)
+    train_dataset, val_dataset = _build_datasets(model_type, train_records, val_records, preprocessor)
     train_loader, val_loader = _build_dataloaders(train_dataset, val_dataset, training_config)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = EfficientNetB4Baseline(
-        pretrained=model_config.pretrained,
-        num_output_logits=model_config.num_output_logits,
-    )
+    model = _build_model(model_type, model_config)
     model.to(device)
 
     if training_config.freeze_backbone_epochs > 0:
@@ -177,13 +264,11 @@ def run_training(
             "device": device.type,
             "num_train_samples": len(train_records),
             "num_val_samples": len(val_records),
-            "model_config": {
-                "name": model_config.name,
-                "architecture": model_config.architecture,
-                "pretrained": model_config.pretrained,
-                "num_output_logits": model_config.num_output_logits,
-                "label_mapping": model_config.label_mapping,
-            },
+            "model_type": model_type,
+            # model.get_spec() (polymorphic - see model/training/checkpoint.py's
+            # architecture registry) rather than a hardcoded EfficientNet-B4
+            # dict, so this matches what's actually built for any model_type.
+            "model_config": model.get_spec(),
             "training_config": training_config.to_dict(),
         }
     )
@@ -243,6 +328,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default=None, help="Path to a training_config.yaml (default: repo default).")
     parser.add_argument("--model-config", default=None, help="Path to model_config.yaml (default: repo default).")
     parser.add_argument(
+        "--frequency-config",
+        default=None,
+        help=(
+            "Path to a frequency_config.yaml selecting model_type "
+            "('rgb_only' | 'frequency_only' | 'rgb_frequency_fusion'); "
+            "default: repo default, whose shipped default is 'rgb_only'."
+        ),
+    )
+    parser.add_argument(
         "--smoke-test",
         action="store_true",
         help="Run a tiny, fast CPU correctness check (forward/backward/checkpointing) - not a benchmark run.",
@@ -263,7 +357,12 @@ def main() -> None:
         if training_config.max_val_samples is None:
             training_config.max_val_samples = 16
 
-    summary = run_training(training_config, model_config_path=args.model_config, smoke_test=args.smoke_test)
+    summary = run_training(
+        training_config,
+        model_config_path=args.model_config,
+        smoke_test=args.smoke_test,
+        frequency_config_path=args.frequency_config,
+    )
     print(f"run_id             = {summary['run_id']}")
     print(f"run_dir            = {summary['run_dir']}")
     print(f"epochs_run         = {summary['epochs_run']}")

@@ -11,12 +11,31 @@ Responsible Team Member: Member 1 (Core ML & Model Architecture)
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
+
+
+def _move_batch_to_device(
+    batch: Union[torch.Tensor, Dict[str, torch.Tensor]], device: torch.device
+) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+    """Moves a batch to `device`, whether it is a plain tensor (RGB-only
+    models) or a dict of tensors (dual-branch models, e.g.
+    {"rgb": ..., "frequency": ...} - see
+    model/training/dual_branch_dataset.py). See
+    .claude/specs/06-frequency-fusion.md ("Model-loading interface")."""
+    if isinstance(batch, dict):
+        return {key: value.to(device) for key, value in batch.items()}
+    return batch.to(device)
+
+
+def _batch_size(batch: Union[torch.Tensor, Dict[str, torch.Tensor]]) -> int:
+    if isinstance(batch, dict):
+        return next(iter(batch.values())).size(0)
+    return batch.size(0)
 
 
 def _roc_auc_score(labels: Sequence[int], scores: Sequence[float]) -> Optional[float]:
@@ -102,7 +121,7 @@ def train_one_epoch(
     use_amp = scaler.is_enabled()
 
     for images, labels, _meta in loader:
-        images = images.to(device)
+        images = _move_batch_to_device(images, device)
         labels = labels.to(device).float().unsqueeze(1)
 
         optimizer.zero_grad(set_to_none=True)
@@ -114,7 +133,7 @@ def train_one_epoch(
         scaler.step(optimizer)
         scaler.update()
 
-        batch_size = images.size(0)
+        batch_size = _batch_size(images)
         total_loss += loss.item() * batch_size
         total_samples += batch_size
 
@@ -140,7 +159,7 @@ def validate(
     generators_out: List[str] = []
 
     for images, labels, meta in loader:
-        images = images.to(device)
+        images = _move_batch_to_device(images, device)
         labels_device = labels.to(device).float().unsqueeze(1)
 
         logits = model(images)
@@ -149,7 +168,7 @@ def validate(
         probs = torch.sigmoid(logits).squeeze(1)
         preds = (probs >= threshold).long().cpu()
 
-        batch_size = images.size(0)
+        batch_size = _batch_size(images)
         total_loss += loss.item() * batch_size
         total_samples += batch_size
         correct += (preds == labels).sum().item()
