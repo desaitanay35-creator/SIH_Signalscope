@@ -1,0 +1,47 @@
+# SignalScope Training Run Configuration
+#
+# Run-specific training hyperparameters only. Model architecture, input
+# size, normalization, and label mapping are owned by config/model_config.yaml
+# (single source of truth) and are NOT duplicated here.
+# See model/training/config.py (TrainingConfig) and
+# .claude/specs/04-training-pipeline.md for the full rationale.
+training:
+  # Master seed for all reproducible training decisions (dataset shuffling,
+  # model init when pretrained=false, DataLoader worker seeding).
+  seed: 42
+
+  epochs: 10
+  batch_size: 16
+
+  # Windows/CPU default: 0 (see .claude/specs/04-training-pipeline.md,
+  # "DataLoader configuration"). Override for a Linux/GPU host.
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  drop_last_train: true
+
+  # Only "adamw" (optimizer) and "cosine" (scheduler) are implemented.
+  optimizer: "adamw"
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  scheduler: "cosine"
+
+  # Number of initial epochs to train with the backbone frozen (0 = full
+  # fine-tuning from epoch 1, the baseline default).
+  freeze_backbone_epochs: 0
+
+  # BCEWithLogitsLoss pos_weight override. Null on the balanced dev shard;
+  # set to (n_negative / n_positive) from the TRAIN split's own label
+  # counts if a future dataset is imbalanced. Never derive this from
+  # val/test.
+  pos_weight: null
+
+  # Only takes effect when a CUDA device is available; a no-op on CPU.
+  mixed_precision: true
+
+  checkpoint_dir: "experiments/runs"
+  log_dir: "experiments/runs"
+
+  # Smoke-test-only truncation. Left null for a real training run.
+  max_train_samples: null
+  max_val_samples: null

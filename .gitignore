@@ -48,6 +48,12 @@ train/
 data/raw/
 data/manifests/*.csv
 
+# ML training run artifacts (checkpoints, per-run logs) - see experiments/README.md
+experiments/runs/
+*.pt
+*.pth
+*.ckpt
+
 # SignalScope Runtime & Model Weights
 *.db
 *.sqlite3

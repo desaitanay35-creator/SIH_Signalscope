@@ -1,0 +1,24 @@
+# SignalScope ML Foundation - Python dependencies.
+#
+# Installed and verified in the project's local ML virtual environment
+# (.venv-ml, CPU-only PyTorch build, no CUDA). GPU training environments may
+# install CUDA-enabled torch/torchvision builds instead; version pins below
+# reflect what this repo's ML code has been developed and tested against.
+#
+# This file covers model/, data/, and experiments/ (the ML foundation
+# phase). It intentionally does not duplicate or replace backend/requirements.txt.
+
+torch==2.14.0
+torchvision==0.29.0
+numpy==2.5.3
+pyyaml==6.0.3
+pyarrow==25.0.1
+pillow==12.3.0
+pytest
+
+# NOTE: scikit-learn was intentionally NOT added. model/training/engine.py
+# computes ROC-AUC with a small self-contained numpy implementation instead,
+# because scikit-learn's scipy dependency fails to import on this
+# development machine (a Windows Application Control policy blocks a scipy
+# DLL). Revisit if a future environment can install it and a fuller metrics
+# suite (macro-F1, confusion matrix, calibration) is added in evaluate.py.
