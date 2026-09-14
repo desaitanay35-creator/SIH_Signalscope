@@ -1,8 +1,27 @@
 # SignalScope Model & Inference Configuration
+#
+# Baseline architecture: EfficientNet-B4 (torchvision, ImageNet-pretrained
+# backbone) with its 1000-class head replaced by a single binary logit.
+# See model/architectures/efficientnet_b4.py and data/README.md
+# ("EfficientNet-B4 baseline") for the full specification.
+#
+# input_size / channel order / normalization are owned by `data.preprocessing`
+# below (single source of truth, shared with data/preprocessor.py) and are
+# NOT duplicated here.
 model:
   name: "EfficientNet-B4"
-  num_classes: 2
-  input_size: [224, 224]
+  architecture: "efficientnet_b4"
+  # Whether `build_model()` loads ImageNet-pretrained weights by default.
+  # Unit tests must override this to false to avoid any network access.
+  pretrained: true
+  # The model outputs exactly one raw logit (no softmax/sigmoid applied
+  # inside the model). sigmoid(logit) = P(label == 1, i.e. AI-generated).
+  num_output_logits: 1
+  label_mapping:
+    0: "real"
+    1: "ai_generated"
+  # NOTE: applied by the evaluation/inference layer, never inside the model
+  # itself - the model always returns the raw logit.
   threshold: 0.5
 
 explainability:

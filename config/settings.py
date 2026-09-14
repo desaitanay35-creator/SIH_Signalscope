@@ -7,7 +7,7 @@ Responsible Team Member: Member 6 (MLOps & Config)
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import yaml
 
@@ -100,4 +100,52 @@ def load_data_config(config_path: Optional[str] = None) -> DataConfig:
         manifest_path=data_raw.get("manifest_path", defaults.manifest_path),
         preprocessing=preprocessing,
         split=split,
+    )
+
+
+@dataclass
+class ModelConfig:
+    """Baseline model architecture configuration, loaded from the `model:`
+    section of config/model_config.yaml.
+
+    Input size, channel order, and normalization are intentionally NOT part
+    of this dataclass - they are owned by `DataConfig.preprocessing` (single
+    source of truth shared with data/preprocessor.py). See
+    model/architectures/efficientnet_b4.py::get_model_spec for how the two
+    are combined into one reported specification.
+    """
+
+    name: str = "EfficientNet-B4"
+    architecture: str = "efficientnet_b4"
+    pretrained: bool = True
+    num_output_logits: int = 1
+    label_mapping: Dict[int, str] = field(default_factory=lambda: {0: "real", 1: "ai_generated"})
+    threshold: float = 0.5
+
+
+def load_model_config(config_path: Optional[str] = None) -> ModelConfig:
+    """Loads the `model:` section of the YAML model configuration.
+
+    Falls back to `ModelConfig()` defaults for any missing keys.
+    """
+    path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
+    if not path.is_file():
+        return ModelConfig()
+
+    with open(path, "r", encoding="utf-8") as fh:
+        raw = yaml.safe_load(fh) or {}
+
+    model_raw = raw.get("model", {}) or {}
+    defaults = ModelConfig()
+
+    label_mapping_raw = model_raw.get("label_mapping", defaults.label_mapping)
+    label_mapping = {int(k): str(v) for k, v in label_mapping_raw.items()}
+
+    return ModelConfig(
+        name=model_raw.get("name", defaults.name),
+        architecture=model_raw.get("architecture", defaults.architecture),
+        pretrained=bool(model_raw.get("pretrained", defaults.pretrained)),
+        num_output_logits=int(model_raw.get("num_output_logits", defaults.num_output_logits)),
+        label_mapping=label_mapping,
+        threshold=float(model_raw.get("threshold", defaults.threshold)),
     )

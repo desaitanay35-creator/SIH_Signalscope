@@ -122,3 +122,58 @@ pytest tests/test_data.py -v
 All fixtures are tiny synthetic images generated on the fly inside the test
 file (via PIL, in `tmp_path`) - no real dataset or SIH hidden test data is
 read or required.
+
+## EfficientNet-B4 baseline
+
+`model/architectures/efficientnet_b4.py` defines SignalScope's first ML
+baseline: `build_model(pretrained=True) -> nn.Module` and
+`get_model_spec() -> dict`.
+
+**Why this is the baseline.** EfficientNet-B4 is a well-understood,
+ImageNet-pretrained CNN with a good accuracy/compute trade-off on CPU and
+GPU alike, making it a reasonable starting point for transfer learning
+before investing in anything more specialized (frequency-domain fusion,
+ensembles, ViTs, etc.).
+
+**What the model predicts.** A torchvision EfficientNet-B4 backbone with its
+1000-class ImageNet head replaced by a single binary logit. Given a
+preprocessed `(N, 3, H, W)` RGB tensor (see `data/preprocessor.py` - this
+module does not reimplement preprocessing), `forward()` returns the raw
+logit of shape `(N, 1)`.
+
+**Label mapping:** `0 = real`, `1 = AI-generated` (matches
+`data/dataset_loader.py`'s manifest label convention).
+
+**Logit vs. probability.** The model returns a raw logit, not a probability
+and not a decision. `sigmoid(logit)` is the estimated probability that the
+image is AI-generated. No decision threshold is applied inside the model -
+thresholding is an evaluation/inference-layer concern, applied later to
+`sigmoid(logit)`.
+
+**Why this is only a baseline.**
+- The classification head is freshly initialized and has not been trained
+  on any real-vs-AI-generated data - its raw output is not yet meaningful.
+- No training loop exists yet (deliberately out of scope for this step).
+- `sigmoid(logit)` is **not calibrated**. Calibration (e.g. temperature
+  scaling) will be added later, once real training data is available, and
+  must not be assumed or claimed before then.
+- This baseline has not been evaluated - it has **not** achieved any
+  accuracy, ROC-AUC, or other metric. No such claim should be made until a
+  real training + evaluation run is performed.
+- The generator-disjoint `test` split (see above) - not a random image-level
+  holdout - will be the important benchmark once training happens: unseen-
+  generator ROC-AUC, not in-distribution accuracy, is the metric that
+  matters for SIH.
+
+**What this step does NOT include:** model training, FFT/frequency
+features, Error Level Analysis, Grad-CAM, calibration, or any backend/API
+integration. Those are later steps.
+
+Run the model tests with:
+
+```bash
+pytest tests/test_model.py -v
+```
+
+These tests always construct the model with `pretrained=False`, so they
+require no network access and never download ImageNet weights.
