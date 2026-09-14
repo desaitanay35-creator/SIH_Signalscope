@@ -1,0 +1,25 @@
+# SignalScope Evaluation Run Configuration
+#
+# Run-specific evaluation settings only. Model architecture, preprocessing,
+# and the generator-disjoint split (train/val/test) are owned by
+# config/model_config.yaml (single source of truth) and are NOT duplicated
+# here. The classification threshold defaults to `model.threshold` in
+# config/model_config.yaml too - not repeated here - unless overridden via
+# --threshold at the CLI.
+# See model/evaluation/config.py (EvaluationConfig) and
+# .claude/specs/05-evaluation-pipeline.md for the full rationale.
+evaluation:
+  batch_size: 16
+
+  # Windows/CPU default: 0, matching config/training_config.yaml.
+  num_workers: 0
+  pin_memory: false
+
+  # Base directory results are written under, following the same
+  # experiments/runs/ convention as training (see
+  # .claude/specs/05-evaluation-pipeline.md, "Output artifacts").
+  output_dir: "experiments/runs"
+
+  # Off by default: rendering confusion_matrix.png requires matplotlib,
+  # which is an optional dependency not installed by default.
+  generate_plots: false

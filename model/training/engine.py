@@ -55,6 +55,13 @@ def _roc_auc_score(labels: Sequence[int], scores: Sequence[float]) -> Optional[f
     return float(auc)
 
 
+# Public name for reuse outside this module (e.g. model/evaluation/metrics.py)
+# - same function, `_roc_auc_score` kept as an alias so existing imports
+# (tests/test_training.py) are unaffected. See
+# .claude/specs/05-evaluation-pipeline.md ("Files to change").
+roc_auc_score = _roc_auc_score
+
+
 @dataclass
 class EpochMetrics:
     """Validation-epoch results: aggregate metrics plus the raw
