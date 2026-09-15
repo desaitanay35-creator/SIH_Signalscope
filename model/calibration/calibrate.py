@@ -53,7 +53,7 @@ from data.splitting import REAL_GENERATOR_ID, split_manifest
 from model.calibration.calibration_metrics import brier_score, expected_calibration_error
 from model.calibration.logit_inference import LogitPredictionRow, run_logit_inference
 from model.calibration.temperature_scaling import TemperatureFitResult, apply_temperature, fit_temperature
-from model.evaluation.metrics import SplitMetrics, compute_split_metrics, threshold_probabilities
+from model.evaluation.metrics import SplitMetrics, compute_split_metrics, roc_auc_score, threshold_probabilities
 from model.training.checkpoint import (
     DEFAULT_ARCHITECTURE_ID,
     UnknownArchitectureError,
@@ -206,9 +206,33 @@ def load_calibration_config(config_path: Optional[str] = None) -> CalibrationCon
 
 
 def _overall_calibration_block(
-    labels: List[int], probabilities: List[float], threshold: float, n_bins: int
+    labels: List[int],
+    probabilities: List[float],
+    ranking_scores: List[float],
+    threshold: float,
+    n_bins: int,
 ) -> Dict[str, Any]:
+    """`probabilities` (sigmoid outputs) drive the threshold-based metrics
+    (accuracy/macro-F1/FPR/confusion matrix) and the calibration metrics
+    (Brier/ECE), which are genuinely about the probability values.
+
+    `ranking_scores` - the pre-sigmoid logit for "before", `logit /
+    temperature` for "after" - drives `roc_auc` instead of `probabilities`.
+    This is required, not cosmetic: `torch.sigmoid` saturates to exactly
+    1.0/0.0 in float32 for |logit| gtrsim 17/-100, which can collapse two
+    logits that sit on opposite sides of the real/fake boundary into an
+    identical probability - a tie that does not exist in the underlying
+    (real-valued) ranking. Temperature scaling divides the logit before
+    that saturation point, and can reveal the pair's true order, changing
+    which one ranks higher - a measurable ROC-AUC difference caused
+    entirely by this float32 precision loss, not by any actual change in
+    ranking. Dividing a real number by a positive scalar exactly preserves
+    its order with no equivalent collapsing behavior, so computing roc_auc
+    from `ranking_scores` keeps the before/after comparison mathematically
+    rank-invariant, as `_assert_roc_auc_invariant` requires.
+    """
     metrics: SplitMetrics = compute_split_metrics(labels, probabilities, threshold)
+    metrics.roc_auc = roc_auc_score(labels, ranking_scores)
     block = metrics.to_dict()
     block["brier_score"] = brier_score(probabilities, labels)
     block["ece"] = expected_calibration_error(probabilities, labels, n_bins=n_bins)
@@ -218,6 +242,7 @@ def _overall_calibration_block(
 def _per_generator_calibration_blocks(
     labels: List[int],
     probabilities: List[float],
+    ranking_scores: List[float],
     generators: List[str],
     threshold: float,
     n_bins: int,
@@ -237,16 +262,26 @@ def _per_generator_calibration_blocks(
         indices = real_indices + generator_indices
         group_labels = [labels[i] for i in indices]
         group_probabilities = [probabilities[i] for i in indices]
-        blocks[generator_id] = _overall_calibration_block(group_labels, group_probabilities, threshold, n_bins)
+        group_ranking_scores = [ranking_scores[i] for i in indices]
+        blocks[generator_id] = _overall_calibration_block(
+            group_labels, group_probabilities, group_ranking_scores, threshold, n_bins
+        )
     return blocks
 
 
 def _split_block(
-    labels: List[int], probabilities: List[float], generators: List[str], threshold: float, n_bins: int
+    labels: List[int],
+    probabilities: List[float],
+    ranking_scores: List[float],
+    generators: List[str],
+    threshold: float,
+    n_bins: int,
 ) -> Dict[str, Any]:
     return {
-        "overall": _overall_calibration_block(labels, probabilities, threshold, n_bins),
-        "per_generator": _per_generator_calibration_blocks(labels, probabilities, generators, threshold, n_bins),
+        "overall": _overall_calibration_block(labels, probabilities, ranking_scores, threshold, n_bins),
+        "per_generator": _per_generator_calibration_blocks(
+            labels, probabilities, ranking_scores, generators, threshold, n_bins
+        ),
     }
 
 
@@ -419,16 +454,25 @@ def run_calibration(
     calibrated_val_probs = apply_temperature(val_logits_tensor, temperature).tolist()
     calibrated_unseen_probs = apply_temperature(unseen_logits_tensor, temperature).tolist()
 
+    # Ranking scores for roc_auc specifically (see _overall_calibration_block):
+    # the raw logit for "before", the temperature-scaled logit (pre-sigmoid)
+    # for "after" - never the post-sigmoid probability, which can saturate
+    # and lose the precision the rank-invariance guarantee depends on.
+    scaled_val_logits = (val_logits_tensor / temperature).tolist()
+    scaled_unseen_logits = (unseen_logits_tensor / temperature).tolist()
+
     n_bins = calibration_config.n_bins
 
     metrics_before = {
-        "val": _split_block(val_labels, raw_val_probs, val_generators, threshold, n_bins),
-        "unseen_generator": _split_block(unseen_labels, raw_unseen_probs, unseen_generators, threshold, n_bins),
+        "val": _split_block(val_labels, raw_val_probs, val_logits_list, val_generators, threshold, n_bins),
+        "unseen_generator": _split_block(
+            unseen_labels, raw_unseen_probs, unseen_logits_list, unseen_generators, threshold, n_bins
+        ),
     }
     metrics_after = {
-        "val": _split_block(val_labels, calibrated_val_probs, val_generators, threshold, n_bins),
+        "val": _split_block(val_labels, calibrated_val_probs, scaled_val_logits, val_generators, threshold, n_bins),
         "unseen_generator": _split_block(
-            unseen_labels, calibrated_unseen_probs, unseen_generators, threshold, n_bins
+            unseen_labels, calibrated_unseen_probs, scaled_unseen_logits, unseen_generators, threshold, n_bins
         ),
     }
     _append_note(metrics_before["unseen_generator"], REAL_PAIRING_NOTE)
