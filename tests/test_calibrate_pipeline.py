@@ -23,10 +23,14 @@ torch = pytest.importorskip("torch")
 from model.architectures.efficientnet_b4 import EfficientNetB4Baseline
 from model.architectures.fusion_model import RGBFrequencyFusionModel
 from model.calibration.calibrate import (
+    ROC_AUC_TOLERANCE,
     CheckpointModifiedError,
+    RankInvarianceViolationError,
+    _assert_roc_auc_invariant,
     run_calibration,
     run_secondary_compatibility_check,
 )
+from model.evaluation.metrics import roc_auc_score
 from model.training.checkpoint import save_checkpoint
 
 
@@ -266,6 +270,56 @@ def test_run_calibration_roc_auc_is_invariant_within_tolerance(tmp_path, synthet
     assert summary["val_roc_auc"]["after"] == val_roc_after
     assert summary["unseen_generator_roc_auc"]["before"] == unseen_roc_before
     assert summary["unseen_generator_roc_auc"]["after"] == unseen_roc_after
+
+
+def test_roc_auc_invariance_survives_float32_division_collision():
+    """Regression test for the residual bug diagnosed in GitHub Actions run
+    35004364153: two DISTINCT float32 logits, divided by the same float32
+    temperature, can round to the IDENTICAL float32 value - a tie under
+    calibration that does not exist in the raw logits, which can shift
+    roc_auc even though the true (real-valued) ordering never changed.
+
+    This exact triple was found by brute-force search and verified
+    directly: `a` and `b` are adjacent float32 values (a < b, one ULP
+    apart), and `temperature` is a specific positive value at which
+    naive float32 division collapses them together, while float64
+    division (the fix in calibrate.py) keeps them distinct.
+    """
+    a = 21.444255828857422  # float32-representable
+    b = 21.444257736206055  # the next float32 value above `a`
+    temperature = 0.5839639382636609
+
+    a_tensor = torch.tensor([a], dtype=torch.float32)
+    b_tensor = torch.tensor([b], dtype=torch.float32)
+
+    # Demonstrate the actual bug mechanism: naive float32 division collides.
+    assert (a_tensor / temperature).item() == (b_tensor / temperature).item()
+    # float64 division (the fix) keeps them distinct, as claimed above.
+    assert (a_tensor.double() / temperature).item() != (b_tensor.double() / temperature).item()
+
+    # `a` is real (label 0), `b` is AI-generated (label 1): a < b is the
+    # correct, informative ordering for the positive class to rank higher.
+    # Padded with a few unambiguous points so the pair's contribution to
+    # roc_auc is isolated rather than swamped by a degenerate 1-vs-1 case.
+    labels = [0, 1, 0, 1, 0, 1]
+    raw_logits = [a, b, -10.0, 10.0, -5.0, 5.0]
+    scaled_logits_float64 = (torch.tensor(raw_logits, dtype=torch.float32).double() / temperature).tolist()
+    scaled_logits_float32_buggy = (torch.tensor(raw_logits, dtype=torch.float32) / temperature).tolist()
+
+    auc_before = roc_auc_score(labels, raw_logits)
+    auc_after_fixed = roc_auc_score(labels, scaled_logits_float64)
+    auc_after_buggy = roc_auc_score(labels, scaled_logits_float32_buggy)
+
+    # The fix: computing the "after" ranking score in float64 preserves
+    # the invariant exactly - this must never raise.
+    _assert_roc_auc_invariant("validation", auc_before, auc_after_fixed)
+    assert auc_before == pytest.approx(auc_after_fixed, abs=ROC_AUC_TOLERANCE)
+
+    # Confirms this scenario actually exercises the bug: the old
+    # (float32-division) computation would have violated the invariant,
+    # so this test would have failed before the fix.
+    with pytest.raises(RankInvarianceViolationError):
+        _assert_roc_auc_invariant("validation", auc_before, auc_after_buggy)
 
 
 def test_run_calibration_threshold_0_5_predictions_are_identical_before_and_after(

@@ -458,8 +458,22 @@ def run_calibration(
     # the raw logit for "before", the temperature-scaled logit (pre-sigmoid)
     # for "after" - never the post-sigmoid probability, which can saturate
     # and lose the precision the rank-invariance guarantee depends on.
-    scaled_val_logits = (val_logits_tensor / temperature).tolist()
-    scaled_unseen_logits = (unseen_logits_tensor / temperature).tolist()
+    #
+    # The division itself is done in float64, not float32: two distinct
+    # float32 logits can be close enough that dividing them by the same
+    # float32 temperature rounds both results to the identical float32
+    # value (a real, observed case: 21.444255828857422 and
+    # 21.444257736206055 both divide to exactly 36.721885681152344 in
+    # float32 at T=0.5839639382636609). That introduces a tie under
+    # calibration that did not exist in the raw logits, which can shift
+    # roc_auc exactly like the sigmoid-saturation case this ranking-score
+    # approach was introduced to fix. float64 has 52 mantissa bits versus
+    # float32's 23, so two float32 inputs that are already distinct by at
+    # least 1 float32 ULP cannot coincidentally collide after float64
+    # division by a common positive scalar - the mathematical ordering is
+    # preserved in practice, not just in theory.
+    scaled_val_logits = (val_logits_tensor.double() / temperature).tolist()
+    scaled_unseen_logits = (unseen_logits_tensor.double() / temperature).tolist()
 
     n_bins = calibration_config.n_bins
 
