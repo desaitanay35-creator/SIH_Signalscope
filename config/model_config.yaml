@@ -1,0 +1,59 @@
+# SignalScope Model & Inference Configuration
+#
+# Baseline architecture: EfficientNet-B4 (torchvision, ImageNet-pretrained
+# backbone) with its 1000-class head replaced by a single binary logit.
+# See model/architectures/efficientnet_b4.py and data/README.md
+# ("EfficientNet-B4 baseline") for the full specification.
+#
+# input_size / channel order / normalization are owned by `data.preprocessing`
+# below (single source of truth, shared with data/preprocessor.py) and are
+# NOT duplicated here.
+model:
+  name: "EfficientNet-B4"
+  architecture: "efficientnet_b4"
+  # Whether `build_model()` loads ImageNet-pretrained weights by default.
+  # Unit tests must override this to false to avoid any network access.
+  pretrained: true
+  # The model outputs exactly one raw logit (no softmax/sigmoid applied
+  # inside the model). sigmoid(logit) = P(label == 1, i.e. AI-generated).
+  num_output_logits: 1
+  label_mapping:
+    0: "real"
+    1: "ai_generated"
+  # NOTE: applied by the evaluation/inference layer, never inside the model
+  # itself - the model always returns the raw logit.
+  threshold: 0.5
+
+explainability:
+  gradcam_layer: "features.7"
+  fft_highpass_radius: 30
+  ela_quality: 90
+
+# Dataset ingestion, preprocessing, and splitting configuration.
+# See data/README.md for the full manifest format and split methodology.
+data:
+  # Path to the dataset manifest (CSV or JSON). Never commit real dataset
+  # images or the hidden SIH test set to this repository - point this at a
+  # local/external path.
+  manifest_path: "data/manifest.csv"
+
+  preprocessing:
+    image_size: [224, 224]
+    normalization:
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+
+  split:
+    # Master seed for all reproducible split decisions.
+    seed: 42
+    # Fraction of "seen" data (real images + seen generators) routed to
+    # validation rather than train.
+    val_fraction: 0.15
+    # Explicit generator IDs to hold out entirely for unseen-generator
+    # evaluation. These generators MUST NOT appear in train or val.
+    # If empty, `held_out_generator_fraction` is used to pick generators
+    # deterministically instead.
+    unseen_generators: []
+    # Used only when `unseen_generators` is empty: fraction of distinct
+    # non-real generator IDs (sorted, then seeded-shuffled) to hold out.
+    held_out_generator_fraction: 0.3

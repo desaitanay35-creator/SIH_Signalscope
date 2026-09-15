@@ -1,0 +1,39 @@
+# SignalScope Step 7 Ablation - Shared Training Configuration
+#
+# The ONE authoritative training_config.yaml for all three reportable
+# ablation experiments. Used byte-identically by all three
+# `python -m model.training.train` invocations - only --frequency-config
+# differs between them. No per-architecture copy of this file exists or
+# may be created - see .claude/specs/07-ablation-experiment.md, Section 6.
+#
+# `--smoke-test` overrides epochs/batch_size/max_train_samples/
+# max_val_samples at runtime (model/training/train.py::main()) for the
+# engineering-correctness pass - this same file is reused unmodified for
+# that pass, no second "smoke" training_config is needed.
+training:
+  seed: 42
+
+  epochs: 10
+  batch_size: 16
+
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  drop_last_train: true
+
+  optimizer: "adamw"
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  scheduler: "cosine"
+
+  freeze_backbone_epochs: 0
+  pos_weight: null
+
+  mixed_precision: true
+
+  checkpoint_dir: "experiments/runs"
+  log_dir: "experiments/runs"
+
+  # null for the reportable run - full split used, no truncation.
+  max_train_samples: null
+  max_val_samples: null

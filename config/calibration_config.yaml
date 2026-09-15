@@ -1,0 +1,23 @@
+# SignalScope Step 8A - Probability Calibration Configuration
+#
+# Run-specific calibration settings, kept separate from
+# config/model_config.yaml (architecture/data/split) and
+# config/evaluation_config.yaml (evaluation-run settings) - this file owns
+# only calibration-run settings (ECE bin count, LBFGS fitting, output
+# directory, dataloader behavior). See
+# .claude/specs/08a-probability-calibration.md ("Files to create").
+calibration:
+  # Fixed-width bin count for Expected Calibration Error (ECE).
+  n_bins: 15
+  # torch.optim.LBFGS settings for the temperature fit (validation NLL
+  # minimization only - never touches train/test logits).
+  lbfgs_max_iter: 50
+  lbfgs_lr: 1.0
+  # Where calibration run artifacts are written:
+  # experiments/calibration/<calib_run_id>/
+  output_dir: "experiments/calibration"
+  # Dataloader settings for the logit-collection passes (val + unseen-
+  # generator set) - mirrors config/evaluation_config.yaml's defaults.
+  batch_size: 16
+  num_workers: 0
+  pin_memory: false

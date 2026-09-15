@@ -210,8 +210,20 @@ class AnalysisService:
             raw_ai_prob = self._validate_detector_output(raw_output)
             model_version = str(raw_output.get("model_version", settings.MODEL_VERSION))
 
-            # 11. Apply calibration only if genuinely configured
-            calibrated_prob, is_calibrated, cal_method = Calibrator.apply_calibration(raw_ai_prob)
+            # 11. Apply calibration only if genuinely configured - prefer the
+            # raw-logit path (sigmoid(raw_logit / T)) whenever the detector
+            # supplies a finite logit, falling back to the probability-based
+            # path for detectors that only report a probability (e.g.
+            # StubImageDetector or a test mock detector).
+            raw_logit = raw_output.get("logits") if isinstance(raw_output, dict) else None
+            if (
+                isinstance(raw_logit, (int, float))
+                and not isinstance(raw_logit, bool)
+                and math.isfinite(raw_logit)
+            ):
+                calibrated_prob, is_calibrated, cal_method = Calibrator.apply_calibration_from_logit(raw_logit)
+            else:
+                calibrated_prob, is_calibrated, cal_method = Calibrator.apply_calibration(raw_ai_prob)
 
             # 12. Determine responsible verdict
             threshold = settings.DECISION_THRESHOLD

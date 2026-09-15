@@ -1,0 +1,37 @@
+# SignalScope Step 7 Ablation - Smoke-Test Model/Data/Split Configuration
+#
+# Identical to config/ablation/model_config.yaml in every field EXCEPT
+# model.pretrained: false (no network access during the CPU
+# engineering-correctness pass, matching Step 4/6's existing smoke-test
+# convention). This is one shared file for all three architectures' smoke
+# runs - not a per-architecture copy. See
+# .claude/specs/07-ablation-experiment.md, Section 6 and "Files to
+# create".
+#
+# Smoke-test results from this config must NEVER be reported as the
+# ablation result (see the spec's Section 13, "Engineering validation" vs.
+# "Scientific evidence").
+model:
+  name: "EfficientNet-B4"
+  architecture: "efficientnet_b4"
+  pretrained: false
+  num_output_logits: 1
+  label_mapping:
+    0: "real"
+    1: "ai_generated"
+  threshold: 0.5
+
+data:
+  manifest_path: "data/manifests/genimage_dev.csv"
+
+  preprocessing:
+    image_size: [224, 224]
+    normalization:
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+
+  split:
+    seed: 42
+    val_fraction: 0.15
+    unseen_generators: ["BigGAN", "Midjourney"]
+    held_out_generator_fraction: 0.3

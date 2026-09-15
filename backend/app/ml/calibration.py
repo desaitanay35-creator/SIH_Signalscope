@@ -48,6 +48,43 @@ class Calibrator:
         return prob, False, "uncalibrated"
 
     @classmethod
+    def apply_calibration_from_logit(cls, raw_logit: float) -> Tuple[float, bool, str]:
+        """
+        Calibrates directly from the model's raw pre-sigmoid logit, when available.
+
+        This is the preferred calibration path: calibrated_probability =
+        sigmoid(raw_logit / T). Operating on the logit avoids reconstructing
+        it via an inverse-sigmoid round trip through an already-rounded
+        probability (which `apply_calibration` must do when only a
+        probability is available) - see .claude/specs/08a-probability-calibration.md
+        ("Rules for implementation": "Calibration must operate on logits,
+        never on already-sigmoided probabilities").
+
+        Returns:
+            Tuple of (calibrated_ai_probability, is_calibrated, calibration_method)
+        """
+        logit = float(raw_logit)
+
+        if not settings.CALIBRATION_ENABLED or settings.CALIBRATION_METHOD == "none":
+            uncalibrated_prob = 1.0 / (1.0 + math.exp(-logit))
+            return uncalibrated_prob, False, "uncalibrated"
+
+        if settings.CALIBRATION_METHOD == "temperature":
+            temp = settings.CALIBRATION_TEMPERATURE
+            if temp <= 0:
+                logger.warning(f"Invalid temperature {temp}; falling back to uncalibrated.")
+                uncalibrated_prob = 1.0 / (1.0 + math.exp(-logit))
+                return uncalibrated_prob, False, "uncalibrated"
+
+            calibrated_logit = logit / temp
+            calibrated_prob = 1.0 / (1.0 + math.exp(-calibrated_logit))
+            return calibrated_prob, True, "temperature_scaling"
+
+        # Unknown calibration method: keep raw (sigmoid of the untouched logit)
+        uncalibrated_prob = 1.0 / (1.0 + math.exp(-logit))
+        return uncalibrated_prob, False, "uncalibrated"
+
+    @classmethod
     def compute_verdict(
         cls,
         ai_probability: float,

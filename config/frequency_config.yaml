@@ -1,0 +1,34 @@
+# SignalScope Frequency-Domain Branch & Fusion Configuration
+#
+# Facts specific to the frequency representation and the new Step 6
+# architectures. Does NOT duplicate config/model_config.yaml (RGB
+# architecture, preprocessing, split) or config/training_config.yaml (run
+# hyperparameters) - those remain the single source of truth for their
+# own concerns. See .claude/specs/06-frequency-fusion.md.
+frequency:
+  # Fixed for now - the only representation this step defines (see the
+  # spec's "Frequency representation" section for the rejected
+  # alternatives and why).
+  representation: "log_magnitude_fft"
+  grayscale_weights: [0.299, 0.587, 0.114]
+  use_fftshift: true
+  normalization: "per_image_minmax"
+
+frequency_branch:
+  input_channels: 1
+  conv_channels: [16, 32, 64]
+  embedding_dim: 64
+
+fusion:
+  # EfficientNet-B4's actual pooled feature width (inspected directly from
+  # model/architectures/efficientnet_b4.py, not invented).
+  rgb_embedding_dim: 1792
+  frequency_embedding_dim: 64
+  fusion_dim: 1856
+  dropout: 0.4
+
+# Which model model/training/train.py builds. "rgb_only" reproduces Step 4
+# exactly (the default, and this file's own shipped default value, so
+# omitting --frequency-config or leaving this key untouched changes
+# nothing about existing behavior).
+model_type: "rgb_only"   # "rgb_only" | "frequency_only" | "rgb_frequency_fusion"
