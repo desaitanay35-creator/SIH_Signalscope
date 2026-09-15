@@ -1,0 +1,2 @@
+# Step 7 ablation - Experiment B. See .claude/specs/07-ablation-experiment.md.
+model_type: "frequency_only"

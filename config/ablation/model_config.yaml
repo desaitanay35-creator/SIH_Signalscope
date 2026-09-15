@@ -1,0 +1,47 @@
+# SignalScope Step 7 Ablation - Shared Model/Data/Split Configuration
+#
+# The ONE authoritative model_config.yaml for all three reportable ablation
+# experiments (rgb_only, frequency_only, rgb_frequency_fusion). Used
+# byte-identically by all three `python -m model.training.train` and all
+# three `python -m model.evaluation.evaluate` invocations - the only thing
+# that varies between the three experiments is --frequency-config
+# (model_type). No per-architecture copy of this file exists or may be
+# created - see .claude/specs/07-ablation-experiment.md, Section 6.
+#
+# `model.pretrained: true` here (the reportable-run setting - see
+# config/ablation/model_config_smoke.yaml for the network-free smoke-test
+# variant, `pretrained: false`).
+model:
+  name: "EfficientNet-B4"
+  architecture: "efficientnet_b4"
+  pretrained: true
+  num_output_logits: 1
+  label_mapping:
+    0: "real"
+    1: "ai_generated"
+  threshold: 0.5
+
+data:
+  manifest_path: "data/manifests/genimage_dev.csv"
+
+  preprocessing:
+    image_size: [224, 224]
+    normalization:
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+
+  split:
+    seed: 42
+    val_fraction: 0.15
+    # Pinned explicitly (not left to held_out_generator_fraction-derived
+    # selection) - this is exactly what the repo's committed default
+    # config/model_config.yaml (unseen_generators: [],
+    # held_out_generator_fraction: 0.3) resolves to against the current
+    # manifest, verified empirically across three independent process
+    # launches (see .claude/specs/07-ablation-experiment.md, Section 11,
+    # item 1). Pinning it here makes the split auditable by reading this
+    # file alone. IMPORTANT: with the current data/splitting.py, `test`
+    # contains ONLY these two generators' images and ZERO real images -
+    # see Section 5's explicit warning in the spec.
+    unseen_generators: ["BigGAN", "Midjourney"]
+    held_out_generator_fraction: 0.3
