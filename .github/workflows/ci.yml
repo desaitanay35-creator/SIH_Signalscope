@@ -10,15 +10,22 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.10'
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest fastapi streamlit
+          # requirements.txt pins torch/torchvision without a build variant; on
+          # Linux, plain PyPI resolution pulls the CUDA build (multi-GB nvidia-*
+          # wheels), which GitHub-hosted runners have no GPU for and can exhaust
+          # runner disk space. The CPU wheel index provides the same pinned
+          # versions built without that dependency chain - no version change.
+          pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
       - name: Run PyTest
         run: |
-          pytest tests/
+          python -m pytest tests/
