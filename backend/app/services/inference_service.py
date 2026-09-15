@@ -1,3 +1,4 @@
+import math
 from typing import Any, Dict
 import numpy as np
 from PIL import Image
@@ -66,8 +67,20 @@ class InferenceService:
         raw_ai_prob = float(raw_output.get("raw_ai_probability", 0.0))
         model_version = raw_output.get("model_version", settings.MODEL_VERSION)
 
-        # 3. Calibration
-        calibrated_prob, is_calibrated, cal_method = Calibrator.apply_calibration(raw_ai_prob)
+        # 3. Calibration - prefer the raw-logit path (operates on raw_logit,
+        # never on an already-sigmoided probability) whenever the detector
+        # supplies a finite logit; fall back to the probability-based path
+        # for detectors that only report a probability (e.g. StubImageDetector
+        # or a mock detector), preserving backward compatibility.
+        raw_logit = raw_output.get("logits")
+        if (
+            isinstance(raw_logit, (int, float))
+            and not isinstance(raw_logit, bool)
+            and math.isfinite(raw_logit)
+        ):
+            calibrated_prob, is_calibrated, cal_method = Calibrator.apply_calibration_from_logit(raw_logit)
+        else:
+            calibrated_prob, is_calibrated, cal_method = Calibrator.apply_calibration(raw_ai_prob)
 
         # 4. Verdict determination
         threshold = settings.DECISION_THRESHOLD

@@ -3,6 +3,7 @@ from typing import Optional
 from app.core.config import settings
 from app.core.logging import logger
 from app.ml.detector import ImageDetector, StubImageDetector
+from app.ml.rgb_frequency_detector import RGBFrequencyFusionDetector
 
 
 class ModelLoader:
@@ -44,10 +45,16 @@ class ModelLoader:
                 weights_path=str(weights_path)
             )
 
-        # Integration point for ML model loading once trained weights are placed in model/weights/
-        logger.info(f"Discovered weights at '{weights_path}'. Awaiting ML team model class.")
-        return StubImageDetector(
+        # Weights are present: load the real detector. A corrupt or
+        # architecture-incompatible checkpoint must fail loudly here
+        # (ModelIncompatibleError propagates to the caller) - it must never
+        # be caught and silently downgraded to StubImageDetector. See
+        # .claude/specs/09-backend-ml-integration.md ("Rollback/failure
+        # behavior").
+        logger.info(f"Discovered weights at '{weights_path}'. Loading RGBFrequencyFusionDetector...")
+        return RGBFrequencyFusionDetector(
+            weights_path=weights_path,
             model_version=settings.MODEL_VERSION,
-            weights_path=str(weights_path)
+            architecture=settings.MODEL_ARCHITECTURE,
         )
 

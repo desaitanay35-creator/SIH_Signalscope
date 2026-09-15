@@ -20,6 +20,8 @@ class ModelInfoResponse(BaseModel):
     task: str = Field(..., json_schema_extra={"example": "real-vs-ai-generated"})
     loaded: bool = Field(..., description="Whether model weights are actively loaded in memory")
     device: Optional[str] = Field(None, json_schema_extra={"example": "cpu"})
+    architecture: Optional[str] = Field(None, description="Registered model architecture id", json_schema_extra={"example": "rgb_frequency_fusion"})
+    checkpoint_path: Optional[str] = Field(None, description="Filesystem path of the loaded checkpoint")
 
 
 class CueItem(BaseModel):

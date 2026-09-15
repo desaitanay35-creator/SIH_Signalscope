@@ -65,6 +65,29 @@ class ModelUnavailableError(AppException):
         )
 
 
+class ModelIncompatibleError(AppException):
+    """Raised when model weights exist on disk but the checkpoint is corrupt,
+    unreadable, or declares an architecture/state_dict incompatible with the
+    detector attempting to load it.
+
+    Deliberately distinct from ModelUnavailableError: a missing-weights file
+    is an expected/transient condition (HTTP 503, backend falls back to
+    StubImageDetector); a present-but-broken checkpoint is a real bug that
+    must fail loudly at startup, never silently substitute a stub detector.
+    """
+    def __init__(
+        self,
+        message: str = "The configured model checkpoint is corrupt or incompatible with the expected architecture.",
+        details: Optional[Any] = None
+    ):
+        super().__init__(
+            code="MODEL_INCOMPATIBLE",
+            message=message,
+            status_code=500,
+            details=details
+        )
+
+
 class InvalidModelOutputError(AppException):
     """Raised when the detector returns invalid, non-numeric, or out-of-range output."""
     def __init__(

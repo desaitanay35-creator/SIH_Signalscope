@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     # ML Model Configuration (Loosely coupled with ML implementation)
     MODEL_VERSION: str = "signalscope-v1"
     MODEL_WEIGHTS_PATH: str = "model/weights/signalscope_detector.pth"
+    MODEL_ARCHITECTURE: str = "rgb_frequency_fusion"
     DECISION_THRESHOLD: float = 0.50
 
     # Model Input Dimensions & Normalization
