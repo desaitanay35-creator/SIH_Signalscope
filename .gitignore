@@ -50,6 +50,8 @@ data/manifests/*.csv
 
 # ML training run artifacts (checkpoints, per-run logs) - see experiments/README.md
 experiments/runs/
+# Calibration run artifacts - generated locally and intentionally not committed.
+experiments/calibration/
 # Step 7 ablation comparison artifacts are tracked.
 # Large training runs/checkpoints remain ignored above.
 # See .claude/specs/07-ablation-experiment.md
