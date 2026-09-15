@@ -293,17 +293,20 @@ def test_e2e_model_abstraction_isolation():
     The backend services and API routes MUST NOT import torch, torchvision,
     tensorflow, or onnx. They depend strictly on the ImageDetector interface.
 
-    Scope note (.claude/specs/09-backend-ml-integration.md): the concrete
-    detector *implementation* module(s) - e.g. app.ml.rgb_frequency_detector,
-    which adapts the trained torch model behind the ImageDetector interface -
-    are exclusively where a real ML framework dependency is expected to
-    live, and are excluded from this check. Every other module under `app.`
-    (services, API routes, core, db, schemas, and the ImageDetector interface
-    itself in app.ml.detector/app.ml.model_loader/app.ml.calibration) must
-    remain framework-free, matching this test's own stated intent.
+    Scope note (.claude/specs/09-backend-ml-integration.md,
+    .claude/specs/10-explainability.md): the concrete detector
+    *implementation* module(s) - app.ml.rgb_frequency_detector, which
+    adapts the trained torch model behind the ImageDetector interface, and
+    app.ml.gradcam, the generic Grad-CAM computation it uses for
+    explain() - are exclusively where a real ML framework dependency is
+    expected to live, and are excluded from this check. Every other module
+    under `app.` (services, API routes, core, db, schemas, and the
+    ImageDetector interface itself in
+    app.ml.detector/app.ml.model_loader/app.ml.calibration) must remain
+    framework-free, matching this test's own stated intent.
     """
     forbidden_frameworks = ["torch", "torchvision", "tensorflow", "onnx", "onnxruntime"]
-    ml_framework_adapter_modules = {"app.ml.rgb_frequency_detector"}
+    ml_framework_adapter_modules = {"app.ml.rgb_frequency_detector", "app.ml.gradcam"}
 
     # Check loaded modules under app
     for mod_name, mod in list(sys.modules.items()):

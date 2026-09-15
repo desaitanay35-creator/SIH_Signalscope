@@ -34,6 +34,7 @@ from app.core.config import settings
 from app.core.errors import ModelIncompatibleError
 from app.core.logging import logger
 from app.ml.detector import ImageDetector
+from app.ml.gradcam import compute_gradcam_map, render_overlay_jpeg, resize_cam
 
 # `model.*` lives at the repository root, one level above `backend/`. When
 # the backend is launched with `backend/` as the working directory (e.g.
@@ -221,5 +222,71 @@ class RGBFrequencyFusionDetector(ImageDetector):
             "model_version": self._model_version,
         }
 
-    def explain(self, image_tensor: Any) -> Optional[Any]:
-        return None
+    def explain(self, image_tensor: Any) -> Optional[bytes]:
+        """Grad-CAM visual evidence for the RGB branch (Step 10).
+
+        Targets `self._model.rgb_branch.backbone.features[-1]` - the final
+        EfficientNet-B4 convolutional feature map (1792 channels) - and
+        the raw, pre-sigmoid, pre-calibration AI-generated logit (never
+        the calibrated probability: calibration is a post-hoc, independently
+        toggleable rescaling of the same logit, unrelated to which pixels
+        the model attended to). Reuses the exact same frequency-branch
+        reconstruction `predict()` uses (`_build_frequency_input`) - no
+        second FFT implementation.
+
+        Requires a single-image batch (N == 1): explain() is defined as a
+        per-image operation by the existing backend contract
+        (`ExplanationService` calls it once per analysis), so a batch is
+        rejected clearly rather than silently explained from only its
+        first image.
+
+        Returns JPEG-encoded overlay bytes (or raises, which
+        `ExplanationService.generate_explanation` already treats as
+        "explanation unavailable") - the return type is unchanged from the
+        existing `ImageDetector.explain() -> Optional[Any]` contract.
+        """
+        tensor = image_tensor
+        if not isinstance(tensor, torch.Tensor):
+            tensor = torch.as_tensor(np.asarray(tensor), dtype=torch.float32)
+        tensor = tensor.to(dtype=torch.float32, device=self._device)
+
+        if tensor.dim() != 4:
+            raise ValueError(f"Expected an NCHW RGB tensor, got shape {tuple(tensor.shape)!r}.")
+        if tensor.shape[0] != 1:
+            raise ValueError(
+                f"explain() requires a single-image batch (N == 1); got N={tensor.shape[0]}. "
+                "Call explain() once per image rather than batching for explainability."
+            )
+
+        self._model.eval()  # defensive: explain() must never run in training mode
+        frequency_tensor = self._build_frequency_input(tensor).to(self._device)
+        target_layer = self._model.rgb_branch.backbone.features[-1]
+
+        def _forward_fn() -> torch.Tensor:
+            # Raw AI-generated logit - BEFORE sigmoid, BEFORE temperature
+            # calibration. Grad-CAM must explain the model's native
+            # decision variable, not a post-hoc, independently-toggleable
+            # calibration transform of it.
+            return self._model({"rgb": tensor, "frequency": frequency_tensor})
+
+        try:
+            cam = compute_gradcam_map(target_layer, _forward_fn)
+        finally:
+            # Defense in depth: torch.autograd.grad(inputs=[...]) never
+            # populates parameter .grad in the first place, but this
+            # guarantees it regardless of any future change to
+            # compute_gradcam_map's internals.
+            self._model.zero_grad(set_to_none=True)
+
+        height, width = int(tensor.shape[-2]), int(tensor.shape[-1])
+        cam_resized = resize_cam(cam, (height, width))
+
+        base_rgb = (
+            self._denormalize_to_unit_range(tensor)[0]
+            .permute(1, 2, 0)
+            .detach()
+            .cpu()
+            .numpy()
+        )
+
+        return render_overlay_jpeg(base_rgb, cam_resized)

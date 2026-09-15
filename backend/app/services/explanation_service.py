@@ -51,7 +51,14 @@ class ExplanationService:
             rel_path = storage_service.save_heatmap(analysis_id, explanation_data)
             heatmap_url = f"/api/v1/analyses/{analysis_id}/heatmap"
             return ExplanationResponse(
-                summary="Grounded visual heatmap generated from model activation layers.",
+                summary=(
+                    "Highlighted regions show where the model's RGB (visual) analysis "
+                    "concentrated when evaluating this image's likelihood of being "
+                    "likely AI-generated. The frequency-domain branch also contributes "
+                    "to the prediction but is not directly visualized by this heatmap. "
+                    "This shows where the model focused, not proof of any specific "
+                    "forensic artifact."
+                ),
                 cues=[],
                 heatmap_url=heatmap_url,
                 heatmap_available=True
