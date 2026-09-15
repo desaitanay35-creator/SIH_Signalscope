@@ -1,0 +1,476 @@
+{
+  "metric_label": "Unseen-generator ROC-AUC (development evaluation)",
+  "dataset_is_dev_shard": true,
+  "manifest_path": "data/manifests/genimage_dev.csv",
+  "split_config": {
+    "seed": 42,
+    "val_fraction": 0.15,
+    "unseen_generators": [
+      "BigGAN",
+      "Midjourney"
+    ],
+    "held_out_generator_fraction": 0.3
+  },
+  "experiments": [
+    {
+      "experiment": "rgb_only",
+      "run_id": "20260915-053629",
+      "eval_run_id": "eval-20260915-055653",
+      "checkpoint_path": "experiments/runs/20260915-053629/checkpoints/best.pt",
+      "architecture": "efficientnet_b4",
+      "val_roc_auc": 0.9027163225172075,
+      "val_loss": 0.4120814118403869,
+      "unseen_generator_roc_auc_dev_eval": 0.9208673271173271,
+      "accuracy": 0.8488372093023255,
+      "macro_f1": 0.830625564328956,
+      "fpr": 0.2222222222222222,
+      "confusion_matrix": {
+        "tp": 253,
+        "tn": 112,
+        "fp": 32,
+        "fn": 33
+      },
+      "num_val_samples": 257,
+      "num_test_samples": 286,
+      "num_unseen_generator_eval_samples": 430,
+      "real_image_pairing_note": "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\".",
+      "per_generator_unseen": {
+        "BigGAN": {
+          "num_samples": 287,
+          "num_real": 144,
+          "num_fake": 143,
+          "accuracy": 0.8083623693379791,
+          "macro_f1": 0.8082133527732216,
+          "roc_auc": 0.8992812742812742,
+          "confusion_matrix": {
+            "tp": 120,
+            "tn": 112,
+            "fp": 32,
+            "fn": 23
+          },
+          "fpr": 0.2222222222222222,
+          "threshold": 0.5,
+          "notes": [
+            "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\"."
+          ]
+        },
+        "Midjourney": {
+          "num_samples": 287,
+          "num_real": 144,
+          "num_fake": 143,
+          "accuracy": 0.8536585365853658,
+          "macro_f1": 0.8528708133971292,
+          "roc_auc": 0.94245337995338,
+          "confusion_matrix": {
+            "tp": 133,
+            "tn": 112,
+            "fp": 32,
+            "fn": 10
+          },
+          "fpr": 0.2222222222222222,
+          "threshold": 0.5,
+          "notes": [
+            "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\"."
+          ]
+        }
+      },
+      "per_generator_seen_validation": {
+        "ADM": {
+          "num_samples": 169,
+          "num_real": 144,
+          "num_fake": 25,
+          "accuracy": 0.7692307692307693,
+          "macro_f1": 0.6658555133079846,
+          "roc_auc": 0.8819444444444444,
+          "confusion_matrix": {
+            "tp": 18,
+            "tn": 112,
+            "fp": 32,
+            "fn": 7
+          },
+          "fpr": 0.2222222222222222,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "GLIDE": {
+          "num_samples": 168,
+          "num_real": 144,
+          "num_fake": 24,
+          "accuracy": 0.7976190476190477,
+          "macro_f1": 0.716159809183065,
+          "roc_auc": 0.9444444444444444,
+          "confusion_matrix": {
+            "tp": 22,
+            "tn": 112,
+            "fp": 32,
+            "fn": 2
+          },
+          "fpr": 0.2222222222222222,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "SD15": {
+          "num_samples": 171,
+          "num_real": 144,
+          "num_fake": 27,
+          "accuracy": 0.8011695906432749,
+          "macro_f1": 0.7317275747508305,
+          "roc_auc": 0.8966049382716049,
+          "confusion_matrix": {
+            "tp": 25,
+            "tn": 112,
+            "fp": 32,
+            "fn": 2
+          },
+          "fpr": 0.2222222222222222,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "VQDM": {
+          "num_samples": 161,
+          "num_real": 144,
+          "num_fake": 17,
+          "accuracy": 0.7701863354037267,
+          "macro_f1": 0.62584008542177,
+          "roc_auc": 0.8455882352941176,
+          "confusion_matrix": {
+            "tp": 12,
+            "tn": 112,
+            "fp": 32,
+            "fn": 5
+          },
+          "fpr": 0.2222222222222222,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "Wukong": {
+          "num_samples": 164,
+          "num_real": 144,
+          "num_fake": 20,
+          "accuracy": 0.7926829268292683,
+          "macro_f1": 0.6912513842746402,
+          "roc_auc": 0.9354166666666667,
+          "confusion_matrix": {
+            "tp": 18,
+            "tn": 112,
+            "fp": 32,
+            "fn": 2
+          },
+          "fpr": 0.2222222222222222,
+          "threshold": 0.5,
+          "notes": []
+        }
+      },
+      "notes": [
+        "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\"."
+      ]
+    },
+    {
+      "experiment": "frequency_only",
+      "run_id": "20260915-054226",
+      "eval_run_id": "eval-20260915-055715",
+      "checkpoint_path": "experiments/runs/20260915-054226/checkpoints/best.pt",
+      "architecture": "frequency_branch",
+      "val_roc_auc": 0.6534537856440511,
+      "val_loss": 0.6320570609912798,
+      "unseen_generator_roc_auc_dev_eval": 0.8437742812742812,
+      "accuracy": 0.7488372093023256,
+      "macro_f1": 0.7283829309376755,
+      "fpr": 0.2916666666666667,
+      "confusion_matrix": {
+        "tp": 220,
+        "tn": 102,
+        "fp": 42,
+        "fn": 66
+      },
+      "num_val_samples": 257,
+      "num_test_samples": 286,
+      "num_unseen_generator_eval_samples": 430,
+      "real_image_pairing_note": "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\".",
+      "per_generator_unseen": {
+        "BigGAN": {
+          "num_samples": 287,
+          "num_real": 144,
+          "num_fake": 143,
+          "accuracy": 0.8536585365853658,
+          "macro_f1": 0.850609756097561,
+          "roc_auc": 0.9893162393162394,
+          "confusion_matrix": {
+            "tp": 143,
+            "tn": 102,
+            "fp": 42,
+            "fn": 0
+          },
+          "fpr": 0.2916666666666667,
+          "threshold": 0.5,
+          "notes": [
+            "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\"."
+          ]
+        },
+        "Midjourney": {
+          "num_samples": 287,
+          "num_real": 144,
+          "num_fake": 143,
+          "accuracy": 0.6236933797909407,
+          "macro_f1": 0.6208162066940692,
+          "roc_auc": 0.6982323232323232,
+          "confusion_matrix": {
+            "tp": 77,
+            "tn": 102,
+            "fp": 42,
+            "fn": 66
+          },
+          "fpr": 0.2916666666666667,
+          "threshold": 0.5,
+          "notes": [
+            "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\"."
+          ]
+        }
+      },
+      "per_generator_seen_validation": {
+        "ADM": {
+          "num_samples": 169,
+          "num_real": 144,
+          "num_fake": 25,
+          "accuracy": 0.6745562130177515,
+          "macro_f1": 0.545721127999609,
+          "roc_auc": 0.6763888888888889,
+          "confusion_matrix": {
+            "tp": 12,
+            "tn": 102,
+            "fp": 42,
+            "fn": 13
+          },
+          "fpr": 0.2916666666666667,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "GLIDE": {
+          "num_samples": 168,
+          "num_real": 144,
+          "num_fake": 24,
+          "accuracy": 0.75,
+          "macro_f1": 0.6813008130081301,
+          "roc_auc": 0.9918981481481481,
+          "confusion_matrix": {
+            "tp": 24,
+            "tn": 102,
+            "fp": 42,
+            "fn": 0
+          },
+          "fpr": 0.2916666666666667,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "SD15": {
+          "num_samples": 171,
+          "num_real": 144,
+          "num_fake": 27,
+          "accuracy": 0.6081871345029239,
+          "macro_f1": 0.4045527779221454,
+          "roc_auc": 0.4202674897119342,
+          "confusion_matrix": {
+            "tp": 2,
+            "tn": 102,
+            "fp": 42,
+            "fn": 25
+          },
+          "fpr": 0.2916666666666667,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "VQDM": {
+          "num_samples": 161,
+          "num_real": 144,
+          "num_fake": 17,
+          "accuracy": 0.7018633540372671,
+          "macro_f1": 0.5619047619047619,
+          "roc_auc": 0.7450980392156863,
+          "confusion_matrix": {
+            "tp": 11,
+            "tn": 102,
+            "fp": 42,
+            "fn": 6
+          },
+          "fpr": 0.2916666666666667,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "Wukong": {
+          "num_samples": 164,
+          "num_real": 144,
+          "num_fake": 20,
+          "accuracy": 0.6463414634146342,
+          "macro_f1": 0.44991903770529723,
+          "roc_auc": 0.45555555555555555,
+          "confusion_matrix": {
+            "tp": 4,
+            "tn": 102,
+            "fp": 42,
+            "fn": 16
+          },
+          "fpr": 0.2916666666666667,
+          "threshold": 0.5,
+          "notes": []
+        }
+      },
+      "notes": [
+        "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\"."
+      ]
+    },
+    {
+      "experiment": "rgb_frequency_fusion",
+      "run_id": "20260915-054703",
+      "eval_run_id": "eval-20260915-055751",
+      "checkpoint_path": "experiments/runs/20260915-054703/checkpoints/best.pt",
+      "architecture": "rgb_frequency_fusion",
+      "val_roc_auc": 0.9069567354965585,
+      "val_loss": 0.4088903985598672,
+      "unseen_generator_roc_auc_dev_eval": 0.9396367521367521,
+      "accuracy": 0.8767441860465116,
+      "macro_f1": 0.8599253836839809,
+      "fpr": 0.20833333333333334,
+      "confusion_matrix": {
+        "tp": 263,
+        "tn": 114,
+        "fp": 30,
+        "fn": 23
+      },
+      "num_val_samples": 257,
+      "num_test_samples": 286,
+      "num_unseen_generator_eval_samples": 430,
+      "real_image_pairing_note": "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\".",
+      "per_generator_unseen": {
+        "BigGAN": {
+          "num_samples": 287,
+          "num_real": 144,
+          "num_fake": 143,
+          "accuracy": 0.8501742160278746,
+          "macro_f1": 0.8497071109324954,
+          "roc_auc": 0.939005439005439,
+          "confusion_matrix": {
+            "tp": 130,
+            "tn": 114,
+            "fp": 30,
+            "fn": 13
+          },
+          "fpr": 0.20833333333333334,
+          "threshold": 0.5,
+          "notes": [
+            "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\"."
+          ]
+        },
+        "Midjourney": {
+          "num_samples": 287,
+          "num_real": 144,
+          "num_fake": 143,
+          "accuracy": 0.8606271777003485,
+          "macro_f1": 0.8600136572041752,
+          "roc_auc": 0.9402680652680653,
+          "confusion_matrix": {
+            "tp": 133,
+            "tn": 114,
+            "fp": 30,
+            "fn": 10
+          },
+          "fpr": 0.20833333333333334,
+          "threshold": 0.5,
+          "notes": [
+            "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\"."
+          ]
+        }
+      },
+      "per_generator_seen_validation": {
+        "ADM": {
+          "num_samples": 169,
+          "num_real": 144,
+          "num_fake": 25,
+          "accuracy": 0.7928994082840237,
+          "macro_f1": 0.700126742712294,
+          "roc_auc": 0.8944444444444445,
+          "confusion_matrix": {
+            "tp": 20,
+            "tn": 114,
+            "fp": 30,
+            "fn": 5
+          },
+          "fpr": 0.20833333333333334,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "GLIDE": {
+          "num_samples": 168,
+          "num_real": 144,
+          "num_fake": 24,
+          "accuracy": 0.8214285714285714,
+          "macro_f1": 0.7495527728085867,
+          "roc_auc": 0.9710648148148148,
+          "confusion_matrix": {
+            "tp": 24,
+            "tn": 114,
+            "fp": 30,
+            "fn": 0
+          },
+          "fpr": 0.20833333333333334,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "SD15": {
+          "num_samples": 171,
+          "num_real": 144,
+          "num_fake": 27,
+          "accuracy": 0.8128654970760234,
+          "macro_f1": 0.7433395872420263,
+          "roc_auc": 0.8827160493827161,
+          "confusion_matrix": {
+            "tp": 25,
+            "tn": 114,
+            "fp": 30,
+            "fn": 2
+          },
+          "fpr": 0.20833333333333334,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "VQDM": {
+          "num_samples": 161,
+          "num_real": 144,
+          "num_fake": 17,
+          "accuracy": 0.7888198757763976,
+          "macro_f1": 0.6517811704834605,
+          "roc_auc": 0.8398692810457516,
+          "confusion_matrix": {
+            "tp": 13,
+            "tn": 114,
+            "fp": 30,
+            "fn": 4
+          },
+          "fpr": 0.20833333333333334,
+          "threshold": 0.5,
+          "notes": []
+        },
+        "Wukong": {
+          "num_samples": 164,
+          "num_real": 144,
+          "num_fake": 20,
+          "accuracy": 0.8048780487804879,
+          "macro_f1": 0.7031674208144797,
+          "roc_auc": 0.9354166666666667,
+          "confusion_matrix": {
+            "tp": 18,
+            "tn": 114,
+            "fp": 30,
+            "fn": 2
+          },
+          "fpr": 0.20833333333333334,
+          "threshold": 0.5,
+          "notes": []
+        }
+      },
+      "notes": [
+        "Real images for this unseen-generator result come from the validation split: data.splitting.split_manifest routes every real image into train/val and never into test (only non-real generators can be held out), so the aggregate unseen-generator set pairs test's held-out-generator fakes with val's real images. See .claude/specs/05-evaluation-pipeline.md, \"Implementation note: real-image pairing for the unseen-generator result\"."
+      ]
+    }
+  ],
+  "generated_at": 1789451989.820408
+}

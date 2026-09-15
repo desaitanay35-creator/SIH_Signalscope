@@ -1,0 +1,18 @@
+{
+  "rgb_only": {
+    "run_id": "20260915-053629",
+    "eval_run_id": "eval-20260915-055653",
+    "checkpoint_path": "experiments/runs/20260915-053629/checkpoints/best.pt"
+  },
+  "frequency_only": {
+    "run_id": "20260915-054226",
+    "eval_run_id": "eval-20260915-055715",
+    "checkpoint_path": "experiments/runs/20260915-054226/checkpoints/best.pt"
+  },
+  "rgb_frequency_fusion": {
+    "run_id": "20260915-054703",
+    "eval_run_id": "eval-20260915-055751",
+    "checkpoint_path": "experiments/runs/20260915-054703/checkpoints/best.pt"
+  },
+  "verification": "passed"
+}

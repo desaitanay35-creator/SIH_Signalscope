@@ -50,9 +50,14 @@ data/manifests/*.csv
 
 # ML training run artifacts (checkpoints, per-run logs) - see experiments/README.md
 experiments/runs/
-# Step 7 ablation comparison artifacts (generated, not committed) - see
-# .claude/specs/07-ablation-experiment.md
-experiments/ablation/
+# Step 7 ablation comparison artifacts are tracked.
+# Large training runs/checkpoints remain ignored above.
+# See .claude/specs/07-ablation-experiment.md
+experiments/ablation/*
+!experiments/ablation/step7/
+!experiments/ablation/step7/comparison.md
+!experiments/ablation/step7/comparison.json
+!experiments/ablation/step7/run_manifest.json
 *.pt
 *.pth
 *.ckpt
