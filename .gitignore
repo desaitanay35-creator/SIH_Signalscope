@@ -11,8 +11,21 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Scoped to actual Python virtual-environment site-packages directories
+# only (matches the venv names in "# Virtual Environments" below) - an
+# unscoped `lib/`/`lib64/` previously matched ANY directory named lib or
+# lib64 anywhere in the repo, silently git-ignoring the legitimate
+# frontend/client/src/lib/ source folder.
+venv/lib/
+venv/lib64/
+ENV/lib/
+ENV/lib64/
+env.bak/lib/
+env.bak/lib64/
+venv.bak/lib/
+venv.bak/lib64/
+.venv-ml/lib/
+.venv-ml/lib64/
 parts/
 sdist/
 var/
