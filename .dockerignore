@@ -1,0 +1,47 @@
+# Git metadata
+.git/
+.github/
+
+# Local ML virtual environment
+.venv-ml/
+
+# Frontend (not part of this backend image)
+frontend/
+node_modules/
+
+# Experiments, reports, docs artifacts not needed at runtime
+experiments/
+report/
+
+# Model weights — fetched at container startup via MODEL_WEIGHTS_URL,
+# never baked into the image.
+model/weights/*
+!model/weights/.gitkeep
+
+# Backend runtime data — never baked into the image.
+backend/storage/originals/*
+!backend/storage/originals/.gitkeep
+backend/storage/heatmaps/*
+!backend/storage/heatmaps/.gitkeep
+backend/signalscope.db
+backend/.env
+
+# Caches / bytecode
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+*.egg-info/
+
+# Railway IaC (unrelated to this image)
+.railway/
+
+# Editor/OS cruft
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Misc top-level Node artifacts unrelated to the Python backend
+package.json
+package-lock.json
