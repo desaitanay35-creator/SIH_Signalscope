@@ -112,7 +112,6 @@ Ablation results from `experiments/ablation/step7/comparison.json`, at threshold
 ## 6. Demo video and deployed app
 
 - **Demo video:** https://drive.google.com/file/d/1iMBgXU1MxSOKLfKZJlnN_QkJJMKdOiok/view?usp=sharing
-- **Deployed app:** _[add a public URL here if one is deployed; otherwise the app is run locally per Section 2 above]_
 
 ---
 
