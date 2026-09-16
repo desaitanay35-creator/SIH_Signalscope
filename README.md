@@ -112,6 +112,7 @@ Ablation results from `experiments/ablation/step7/comparison.json`, at threshold
 ## 6. Demo video and deployed app
 
 - **Demo video:** https://drive.google.com/file/d/1iMBgXU1MxSOKLfKZJlnN_QkJJMKdOiok/view?usp=sharing
+- **Project URL:** https://signalscope.up.railway.app/
 
 ---
 
